@@ -4,10 +4,11 @@
 # more than http call is needed in order to get data from a 
 # period of time longer than one year.
 
-data.crawler <- function(jsonRequest, 
-                         startDate = "2015-01-01",
-                         endDate   = "2015-12-31"){
+
+data.crawler <- function(startDate = "2014-01-01", endDate   = "2015-01-01"){
   
+  library("httr");
+  library("jsonlite");
   
   #################################
   # PRIVATE FUNCTIONS DECLARATION #
@@ -15,8 +16,8 @@ data.crawler <- function(jsonRequest,
   
   
   fetch.stock.data <- function(symbol    = "^IBEX",
-                               startDate = "2015-01-01",
-                               endDate   = "2015-12-31"){
+                               startDate,
+                               endDate){
 
     
     url_1 <- "http://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20yahoo.finance.historicaldata%20where%20symbol%20%3D%20%22"
@@ -30,6 +31,8 @@ data.crawler <- function(jsonRequest,
     
     sub_startDate <- startDate;
     
+    print(paste("> Fetching", symbol, "data ..."));
+    
     returnList <- list();
     
     while (year_1 <= year_2) {
@@ -40,9 +43,7 @@ data.crawler <- function(jsonRequest,
       } else {
         sub_endDate <- paste(year_1, "-12-31", sep = "");
       }
-      
-      print(paste("> Fetching", symbol, "data of year", year_1,"..."));
-      
+            
       year_1 <- year_1 + 1;
       
       # Generate the URL to get the historical data with the symbol parameter given.
@@ -55,10 +56,10 @@ data.crawler <- function(jsonRequest,
       response <- GET(url);
       
       # Parse JSON response.
-      jsonResponse <- content(response);
+      jsonRequest <- content(response);
       
       # Returns historical data from YQL answer structure.
-      returnList <- c(jsonResponse$query$results$quote, returnList);
+      returnList <- c(jsonRequest$query$results$quote, returnList);
       
     }
     
@@ -68,7 +69,7 @@ data.crawler <- function(jsonRequest,
   
   #################################
    
-  # example of request [{"symbol":"TSE", "parameters":"OPEN, CLOSE, HIGH, LOW"}]
+  # Example of request [{"symbol":"TSE", "parameters":"OPEN, CLOSE, HIGH, LOW"}]
   
   # Parse from JSON to List object.
   requestList <- fromJSON(jsonRequest);

@@ -1,4 +1,4 @@
-data.builder <- function (stockLists, jsonRequest) {
+data.builder <- function (stockLists) {
   
   #################################
   # PRIVATE FUNCTIONS DECLARATION #
@@ -6,10 +6,11 @@ data.builder <- function (stockLists, jsonRequest) {
   
   build.stock.matrix <- function (dataList, columns) {
     
+    
     # Transform dataList in a matrix of nx8 elements.
     output <- matrix(unlist(dataList), ncol = 8, byrow=TRUE, dimnames = 
                        list(
-                         NULL , c("SYMBOL", "DATE" , "OPEN" , "CLOSE", "HIGH", "LOW", "VOLUME", "ADJ_CLOSE")  #Column names
+                         NULL , c("SYMBOL", "DATE" , "OPEN" , "HIGH", "LOW", "CLOSE", "VOLUME", "ADJ_CLOSE")  #Column names
                        ));
     
     # Save the symbol of the data that we are processing.
@@ -17,30 +18,39 @@ data.builder <- function (stockLists, jsonRequest) {
     
     # Extract date and symbol column
     DATE <- c(output[, "DATE"]);
-    
-    # Format field Date as int with format YYYYMMDD.
-    DATE <- strtoi(gsub("-", "", DATE));  
-    
-    # Extract columns defined by column parameter.
+       
+    # Calculates the sesion variations (SESVAR) variable.
+    SESVAR <- (as.numeric(output[, "CLOSE"]) - as.numeric(output[, "OPEN"]))/as.numeric(output[, "OPEN"]) * 100;
+        
+    # Extract columns defined by column parameter (SESVAR not considered).
+    output <- cbind(output, SESVAR);
     output <- output[, columns, drop=FALSE];
-    
-    # Calculate the derivative (day variations) of values.
+
+         
+    # Calculate the porcentual increments of values.
     m <- matrix(as.numeric(output), ncol = ncol(output));
     m <- m[nrow(m): 1, ];
-    d <- data.frame(diff(m));
+    d <- data.frame(diff(m))/m * 100;
     
     colnames(d) <- colnames(output);
     
     output <- d;
     
-    # Calculate diference of values in the matrix
+     
+    # If SESVAR is in the configuration string, then we append the calculated vector.
+    if(sum(columns == "SESVAR")) {
+      
+      SESVAR <- SESVAR[(length(DATE) - 1):1];
+      output["SESVAR"] <- SESVAR;
+      
+    }
     
     # Add suffix to column names.
     colnames(output) <- paste(symbol, colnames(output), sep="_");
     
     # Add date column.
     DATE   <- DATE[(length(DATE) - 1):1];
-    output <- cbind(output, DATE);
+    output <- cbind(DATE, output);
     
     
     output;
@@ -49,7 +59,7 @@ data.builder <- function (stockLists, jsonRequest) {
   
   #################################
   
-  # Informing message.
+  # Informative message.
   print("> Building data...");
   
   # Parse from JSON to List object.
@@ -76,12 +86,12 @@ data.builder <- function (stockLists, jsonRequest) {
       
       # If returnMatrix is null we assign the stockMatrix.
       returnMatrix <- stockMatrix;
-   
+      
     } else {
       
       # ...else we merge by date with previous data and delete those fields uncomplete, 
       returnMatrix <- merge(returnMatrix, stockMatrix, by="DATE", all.x = FALSE);
-    
+      
     }
     
     # We set the index to point the next stockList.
@@ -89,9 +99,19 @@ data.builder <- function (stockLists, jsonRequest) {
     
   }
   
-  # Return all stock matrix.
+  # Elimination of outliers.
+  outlierVal <- 2.5;
+  
+  returnMatrix <- returnMatrix[(rowSums(returnMatrix[-1] < -outlierVal | returnMatrix[-1] > outlierVal) == 0),];
+  
+#   # Normalize data in a range of [-1:1]
+#   oldMin = min(returnMatrix[-1]);
+#   oldMax = max(returnMatrix[-1]);
+#   
+#   returnMatrix[-1] <- scale((((returnMatrix[-1] - oldMin) * 2) / (oldMax - oldMin)) - 1, scale=FALSE);
+#   
+
   returnMatrix;
   
 }
-
 
